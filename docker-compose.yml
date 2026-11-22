@@ -77,7 +77,6 @@ services:
       - "rabbitmq"   # ReserveStock and OrderCancelled arrive through RabbitMQ
       - "logstash"   # so the Serilog TCP sink can resolve "logstash" at startup
 
-<<<<<<< HEAD
   # Kataloget som egen service. To instanser af samme image deler én database i SQL Server,
   # og gatewayen fordeler kaldene mellem dem. Kun catalogapi-1 kører migrations og kopierer kataloget
   # fra monolitten (se docker-compose.override.yml).
@@ -124,8 +123,6 @@ services:
       - "inventoryapi"
       - "logstash"
 
-=======
->>>>>>> e6a762fb6d3df147809c767fec57c20756963b8a
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     container_name: elasticsearch
