@@ -90,6 +90,7 @@ jobs:
           - name: inventory-api
             image: inventoryapi
             dockerfile: src/Services/Inventory.API/Dockerfile
+<<<<<<< HEAD
           # Catalog.API kører som to containere (catalogapi-1 og -2), men det er ét image.
           - name: catalog-api
             image: eshopcatalogapi
@@ -97,6 +98,8 @@ jobs:
           - name: api-gateway
             image: apigateway
             dockerfile: src/ApiGateway/Dockerfile
+=======
+>>>>>>> e6a762fb6d3df147809c767fec57c20756963b8a
 
           # A new microservice gets three lines like the ones above.
           # "name" is just a label used in the job name and cache scope;

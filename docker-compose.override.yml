@@ -69,6 +69,7 @@ services:
     volumes:
       - inventory-data:/app/data
 
+<<<<<<< HEAD
   catalogapi-1:
     environment:
       # "Docker" gør, at appsettings.Docker.json bruges (SQL Server i containeren og logs til logstash:5000).
@@ -106,6 +107,8 @@ services:
     ports:
       - "5106:8080"
 
+=======
+>>>>>>> e6a762fb6d3df147809c767fec57c20756963b8a
 volumes:
   ordering-data:
   basket-data:
