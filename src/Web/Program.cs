@@ -124,6 +124,9 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 var app = builder.Build();
 
 app.Logger.LogInformation("App created...");
+app.Logger.LogInformation("Catalog is read from {CatalogSource} (UseCatalogService={UseCatalogService})",
+    app.Configuration.GetValue<bool>("UseCatalogService") ? "Catalog.API" : "the monolith database",
+    app.Configuration.GetValue<bool>("UseCatalogService"));
 
 app.Logger.LogInformation("Seeding Database...");
 

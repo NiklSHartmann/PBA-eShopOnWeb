@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
-using Microsoft.eShopWeb.ApplicationCore.Specifications;
 using Microsoft.eShopWeb.Web.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -14,40 +12,28 @@ namespace Microsoft.eShopWeb.Web.Services;
 /// <summary>
 /// This is a UI-specific service so belongs in UI project. It does not contain any business logic and works
 /// with UI-specific types (view models and SelectListItem types).
+/// Kataloget læses gennem ICatalogClient, så siden ikke ved, om det ligger i monolitten eller i Catalog.API.
 /// </summary>
 public class CatalogViewModelService : ICatalogViewModelService
 {
     private readonly ILogger<CatalogViewModelService> _logger;
-    private readonly IRepository<CatalogItem> _itemRepository;
-    private readonly IRepository<CatalogBrand> _brandRepository;
-    private readonly IRepository<CatalogType> _typeRepository;
-    private readonly IUriComposer _uriComposer;
+    private readonly ICatalogClient _catalogClient;
 
     public CatalogViewModelService(
         ILoggerFactory loggerFactory,
-        IRepository<CatalogItem> itemRepository,
-        IRepository<CatalogBrand> brandRepository,
-        IRepository<CatalogType> typeRepository,
-        IUriComposer uriComposer)
+        ICatalogClient catalogClient)
     {
         _logger = loggerFactory.CreateLogger<CatalogViewModelService>();
-        _itemRepository = itemRepository;
-        _brandRepository = brandRepository;
-        _typeRepository = typeRepository;
-        _uriComposer = uriComposer;
+        _catalogClient = catalogClient;
     }
 
     public async Task<CatalogIndexViewModel> GetCatalogItems(int pageIndex, int itemsPage, int? brandId, int? typeId)
     {
         _logger.LogInformation("GetCatalogItems called.");
 
-        var filterSpecification = new CatalogFilterSpecification(brandId, typeId);
-        var filterPaginatedSpecification =
-            new CatalogFilterPaginatedSpecification(itemsPage * pageIndex, itemsPage, brandId, typeId);
-
-        // the implementation below using ForEach and Count. We need a List.
-        var itemsOnPage = await _itemRepository.ListAsync(filterPaginatedSpecification);
-        var totalItems = await _itemRepository.CountAsync(filterSpecification);
+        var page = await _catalogClient.GetItemsAsync(pageIndex, itemsPage, brandId, typeId);
+        var itemsOnPage = page.Items;
+        var totalItems = page.TotalItems;
 
         var vm = new CatalogIndexViewModel()
         {
@@ -55,7 +41,7 @@ public class CatalogViewModelService : ICatalogViewModelService
             {
                 Id = i.Id,
                 Name = i.Name,
-                PictureUri = _uriComposer.ComposePicUri(i.PictureUri),
+                PictureUri = i.PictureUri,
                 Price = i.Price
             }).ToList(),
             Brands = (await GetBrands()).ToList(),
@@ -80,10 +66,10 @@ public class CatalogViewModelService : ICatalogViewModelService
     public async Task<IEnumerable<SelectListItem>> GetBrands()
     {
         _logger.LogInformation("GetBrands called.");
-        var brands = await _brandRepository.ListAsync();
+        var brands = await _catalogClient.GetBrandsAsync();
 
         var items = brands
-            .Select(brand => new SelectListItem() { Value = brand.Id.ToString(), Text = brand.Brand })
+            .Select(brand => new SelectListItem() { Value = brand.Id.ToString(), Text = brand.Name })
             .OrderBy(b => b.Text)
             .ToList();
 
@@ -96,10 +82,10 @@ public class CatalogViewModelService : ICatalogViewModelService
     public async Task<IEnumerable<SelectListItem>> GetTypes()
     {
         _logger.LogInformation("GetTypes called.");
-        var types = await _typeRepository.ListAsync();
+        var types = await _catalogClient.GetTypesAsync();
 
         var items = types
-            .Select(type => new SelectListItem() { Value = type.Id.ToString(), Text = type.Type })
+            .Select(type => new SelectListItem() { Value = type.Id.ToString(), Text = type.Name })
             .OrderBy(t => t.Text)
             .ToList();
 

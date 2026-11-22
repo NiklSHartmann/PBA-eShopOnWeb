@@ -66,6 +66,63 @@ services:
       - "rabbitmq"   # requests from Web and OrderCreated arrive through RabbitMQ
       - "logstash"   # so the Serilog TCP sink can resolve "logstash" at startup
 
+  inventoryapi:
+    image: ${DOCKER_REGISTRY-ghcr.io/frederikkasten/}inventoryapi:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Inventory.API/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/FrederikKasten/PBA-eShopOnWeb
+    depends_on:
+      - "rabbitmq"   # ReserveStock and OrderCancelled arrive through RabbitMQ
+      - "logstash"   # so the Serilog TCP sink can resolve "logstash" at startup
+
+  # Kataloget som egen service. To instanser af samme image deler én database i SQL Server,
+  # og gatewayen fordeler kaldene mellem dem. Kun catalogapi-1 kører migrations og kopierer kataloget
+  # fra monolitten (se docker-compose.override.yml).
+  catalogapi-1:
+    image: ${DOCKER_REGISTRY-ghcr.io/frederikkasten/}eshopcatalogapi:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Catalog.API/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/FrederikKasten/PBA-eShopOnWeb
+    restart: on-failure   # SQL Server eller monolittens seed er måske ikke klar første gang
+    depends_on:
+      - "sqlserver"
+      - "logstash"   # so the Serilog TCP sink can resolve "logstash" at startup
+
+  catalogapi-2:
+    image: ${DOCKER_REGISTRY-ghcr.io/frederikkasten/}eshopcatalogapi:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Catalog.API/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/FrederikKasten/PBA-eShopOnWeb
+    depends_on:
+      - "sqlserver"
+      - "logstash"
+      - "catalogapi-1"
+
+  # API Gateway (YARP): facaden i Strangler Fig og det eneste indgangspunkt udefra.
+  # Den tager imod på port 5106, som Web brugte før, så brugerne ikke mærker skiftet.
+  apigateway:
+    image: ${DOCKER_REGISTRY-ghcr.io/frederikkasten/}apigateway:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/FrederikKasten/PBA-eShopOnWeb
+    depends_on:
+      - "eshopwebmvc"
+      - "eshoppublicapi"
+      - "catalogapi-1"
+      - "catalogapi-2"
+      - "basketapi"
+      - "orderingapi"
+      - "inventoryapi"
+      - "logstash"
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     container_name: elasticsearch

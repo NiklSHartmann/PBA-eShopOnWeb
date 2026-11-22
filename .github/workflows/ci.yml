@@ -84,16 +84,23 @@ jobs:
           - name: basket-api
             image: basketapi
             dockerfile: src/Services/Basket.API/Dockerfile
+          - name: ordering-api
+            image: orderingapi
+            dockerfile: src/Services/Ordering.API/Dockerfile
+          - name: inventory-api
+            image: inventoryapi
+            dockerfile: src/Services/Inventory.API/Dockerfile
+          # Catalog.API kører som to containere (catalogapi-1 og -2), men det er ét image.
+          - name: catalog-api
+            image: eshopcatalogapi
+            dockerfile: src/Services/Catalog.API/Dockerfile
+          - name: api-gateway
+            image: apigateway
+            dockerfile: src/ApiGateway/Dockerfile
 
-          # Example: when you split out a Catalog microservice, uncomment
-          # these three lines and point "dockerfile" at its Dockerfile.
+          # A new microservice gets three lines like the ones above.
           # "name" is just a label used in the job name and cache scope;
           # "image" is the GHCR image name (keep it equal to docker-compose.yml).
-          # GitHub will then run one more parallel job for this service.
-          #
-          # - name: catalog-api
-          #   image: eshopcatalogapi
-          #   dockerfile: src/Services/Catalog.API/Dockerfile
     steps:
       - uses: actions/checkout@v4
 

@@ -7,8 +7,10 @@ services:
       - RabbitMq__Username=${RABBITMQ_USER:-guest}
       - RabbitMq__Password=${RABBITMQ_PASSWORD:-guest}
       - OrderingApi__BaseUrl=http://orderingapi:8080/
-    ports:
-      - "5106:8080"
+      # Feature flag for kataloget (samme værdi som gatewayen). Sæt USE_CATALOG_SERVICE i .env.
+      - UseCatalogService=${USE_CATALOG_SERVICE:-false}
+      - CatalogApi__BaseUrl=http://catalogapi:8080/
+    # Ingen port: Web nås kun gennem gatewayen, som har overtaget 5106.
     volumes:
       - ~/.aspnet/https:/root/.aspnet/https:ro
       - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro
@@ -52,6 +54,59 @@ services:
     volumes:
       - basket-data:/app/data
 
+  inventoryapi:
+    environment:
+      # "Docker" gør, at appsettings.Docker.json sender logs til logstash:5000.
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:8080
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=${RABBITMQ_USER:-guest}
+      - RabbitMq__Password=${RABBITMQ_PASSWORD:-guest}
+      - ConnectionStrings__InventoryDb=Data Source=/app/data/inventory.db
+    ports:
+      # Kun til test fra denne maskine. Endpoints kræver desuden et JWT fra PublicApi.
+      - "127.0.0.1:5500:8080"
+    volumes:
+      - inventory-data:/app/data
+
+  catalogapi-1:
+    environment:
+      # "Docker" gør, at appsettings.Docker.json bruges (SQL Server i containeren og logs til logstash:5000).
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:8080
+      - InstanceName=catalogapi-1
+      # Kun denne instans kører migrations og kopierer kataloget fra monolitten.
+      - Catalog__InitializeDatabase=true
+    ports:
+      # Kun til Swagger og test fra denne maskine. Al anden trafik går gennem gatewayen.
+      - "127.0.0.1:5600:8080"
+    networks:
+      default:
+        # Web kalder http://catalogapi:8080/; Docker svarer med en af de to instanser.
+        aliases:
+          - catalogapi
+
+  catalogapi-2:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:8080
+      - InstanceName=catalogapi-2
+      - Catalog__InitializeDatabase=false
+    networks:
+      default:
+        aliases:
+          - catalogapi
+
+  apigateway:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:8080
+      # Strangler Fig-flaget: false = katalog-API'et går til PublicApi, true = til Catalog.API.
+      - UseCatalogService=${USE_CATALOG_SERVICE:-false}
+    ports:
+      - "5106:8080"
+
 volumes:
   ordering-data:
   basket-data:
+  inventory-data:

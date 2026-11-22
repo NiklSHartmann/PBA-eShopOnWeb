@@ -1,7 +1,6 @@
 ﻿using Ardalis.GuardClauses;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Web.Interfaces;
 using Microsoft.eShopWeb.Web.ViewModels;
@@ -15,16 +14,16 @@ public class IndexModel : PageModel
     private readonly IBasketClient _basketClient;
     private readonly ILogger<IndexModel> _logger;
     private readonly IBasketViewModelService _basketViewModelService;
-    private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly ICatalogClient _catalogClient;
 
     public IndexModel(IBasketClient basketClient,
         IBasketViewModelService basketViewModelService,
-        IRepository<CatalogItem> itemRepository,
+        ICatalogClient catalogClient,
         ILogger<IndexModel> logger)
     {
         _basketClient = basketClient;
         _basketViewModelService = basketViewModelService;
-        _itemRepository = itemRepository;
+        _catalogClient = catalogClient;
         _logger = logger;
     }
 
@@ -42,7 +41,8 @@ public class IndexModel : PageModel
             return RedirectToPage("/Index");
         }
 
-        var item = await _itemRepository.GetByIdAsync(productDetails.Id);
+        // Prisen slås op i kataloget (monolitten eller Catalog.API) og stoles ikke på fra formularen.
+        var item = await _catalogClient.GetItemAsync(productDetails.Id);
         if (item == null)
         {
             _logger.LogWarning("Catalog item {CatalogItemId} not found; nothing added to the basket", productDetails.Id);

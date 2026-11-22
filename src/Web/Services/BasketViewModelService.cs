@@ -1,7 +1,5 @@
 ﻿using Contracts;
-using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
-using Microsoft.eShopWeb.ApplicationCore.Specifications;
 using Microsoft.eShopWeb.Web.Interfaces;
 using Microsoft.eShopWeb.Web.Pages.Basket;
 
@@ -10,18 +8,15 @@ namespace Microsoft.eShopWeb.Web.Services;
 public class BasketViewModelService : IBasketViewModelService
 {
     private readonly IBasketClient _basketClient;
-    private readonly IRepository<CatalogItem> _itemRepository;
-    private readonly IUriComposer _uriComposer;
+    private readonly ICatalogClient _catalogClient;
     private readonly ILogger<BasketViewModelService> _logger;
 
     public BasketViewModelService(IBasketClient basketClient,
-        IRepository<CatalogItem> itemRepository,
-        IUriComposer uriComposer,
+        ICatalogClient catalogClient,
         ILogger<BasketViewModelService> logger)
     {
         _basketClient = basketClient;
-        _itemRepository = itemRepository;
-        _uriComposer = uriComposer;
+        _catalogClient = catalogClient;
         _logger = logger;
     }
 
@@ -66,8 +61,9 @@ public class BasketViewModelService : IBasketViewModelService
         }
     }
 
-    // Produktnavn og billede kommer stadig fra kataloget i monolitten – Basket.API kender kun CatalogItemId.
+    // Produktnavn og billede kommer fra kataloget – Basket.API kender kun CatalogItemId.
     // Content Enricher: beskeden fra Basket.API beriges med data fra kataloget, før den vises.
+    // ICatalogClient henter dem fra monolittens database eller fra Catalog.API, alt efter feature flaget.
     private async Task<List<BasketItemViewModel>> GetBasketItems(IReadOnlyCollection<BasketSnapshotItem> basketItems)
     {
         if (basketItems.Count == 0)
@@ -75,8 +71,7 @@ public class BasketViewModelService : IBasketViewModelService
             return new List<BasketItemViewModel>();
         }
 
-        var catalogItemsSpecification = new CatalogItemsSpecification(basketItems.Select(b => b.CatalogItemId).ToArray());
-        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+        var catalogItems = await _catalogClient.GetItemsByIdsAsync(basketItems.Select(b => b.CatalogItemId).Distinct().ToList());
 
         var items = basketItems.Select(basketItem =>
         {
@@ -88,7 +83,7 @@ public class BasketViewModelService : IBasketViewModelService
                 UnitPrice = basketItem.UnitPrice,
                 Quantity = basketItem.Quantity,
                 CatalogItemId = basketItem.CatalogItemId,
-                PictureUrl = _uriComposer.ComposePicUri(catalogItem.PictureUri),
+                PictureUrl = catalogItem.PictureUri,
                 ProductName = catalogItem.Name
             };
             return basketItemViewModel;

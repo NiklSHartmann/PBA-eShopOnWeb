@@ -5,24 +5,21 @@ using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
-using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Services;
 
 public class OrderService : IOrderService
 {
     private readonly IRepository<Order> _orderRepository;
-    private readonly IUriComposer _uriComposer;
-    private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly ICatalogClient _catalogClient;
 
     // IRepository<Basket> er fjernet: monolitten har ikke længere adgang til kurven.
-    public OrderService(IRepository<CatalogItem> itemRepository,
-        IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+    // Navn og billede til ordren hentes gennem ICatalogClient, så de kommer fra Catalog.API, når flaget er slået til.
+    public OrderService(ICatalogClient catalogClient,
+        IRepository<Order> orderRepository)
     {
         _orderRepository = orderRepository;
-        _uriComposer = uriComposer;
-        _itemRepository = itemRepository;
+        _catalogClient = catalogClient;
     }
 
     public async Task<Order> CreateOrderAsync(string buyerId, IReadOnlyCollection<OrderItemRequest> items, Address shippingAddress)
@@ -30,13 +27,12 @@ public class OrderService : IOrderService
         Guard.Against.EmptyBasketOnCheckout(items);
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
 
-        var catalogItemsSpecification = new CatalogItemsSpecification(items.Select(item => item.CatalogItemId).ToArray());
-        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+        var catalogItems = await _catalogClient.GetItemsByIdsAsync(items.Select(item => item.CatalogItemId).Distinct().ToList());
 
         var orderItems = items.Select(basketItem =>
         {
             var catalogItem = catalogItems.First(c => c.Id == basketItem.CatalogItemId);
-            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, catalogItem.PictureUri);
             var orderItem = new OrderItem(itemOrdered, basketItem.UnitPrice, basketItem.Quantity);
             return orderItem;
         }).ToList();
